@@ -1,0 +1,62 @@
+name: Test Package Compatibility
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'sdk.txt'
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    # Allow manual triggering
+
+jobs:
+  test-installation:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    
+    name: ${{ matrix.os }} Python ${{ matrix.python-version }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install uv (Unix)
+        if: runner.os != 'Windows'
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      
+      - name: Install uv (Windows)
+        if: runner.os == 'Windows'
+        run: irm https://astral.sh/uv/install.ps1 | iex
+        shell: powershell
+      
+      - name: Create virtual environment
+        run: uv venv --python ${{ matrix.python-version }}
+      
+      - name: Install packages (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          source .venv/bin/activate
+          uv pip install -r sdk.txt
+          uv pip list
+      
+      - name: Install packages (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $ErrorActionPreference = "Stop"
+          uv venv --python ${{ matrix.python-version }}
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv\Scripts\activate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install -r sdk.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip list
+        shell: powershell
