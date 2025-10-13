@@ -1,4 +1,4 @@
-name: Update the mirror from PyPI Packages
+name: Update the mirror from public PyPI registry
 
 on:
   push:
