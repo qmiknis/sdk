@@ -1,7 +1,0 @@
-iqm-data-definitions
-iqm-exa-common
-iqm-station-control-client
-iqm-pulse
-iqm-pulla[qiskit,qir]
-iqm-client[qiskit,cirq,cli]
-iqm-qaoa
