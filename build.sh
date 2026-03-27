@@ -29,8 +29,48 @@ mkdir -p public
 mkdir -p temp
 
 # Install the requirements for building the docs
-uv pip install pip packaging wheel
+uv pip install pip packaging wheel setuptools setuptools_scm
 uv pip install -r requirements.txt
+
+# Function to verify all packages from SDK file were successfully built
+verify_packages() {
+    local SDK_FILE=$1
+    local OUTPUT_DIR=$2
+    
+    echo "Verifying all packages from $SDK_FILE were built..."
+    
+    # Get list of packages from the filtered SDK file (excluding external packages)
+    local TEMP_FILTERED=$(mktemp)
+    grep -v -E "^(qrisp|iqm-benchmarks)(\[|==|>=|<=|>|<|!=|~=|$)" "$SDK_FILE" > "$TEMP_FILTERED"
+    
+    local MISSING_PACKAGES=()
+    
+    while IFS= read -r line; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        
+        # Extract package name (first field, before any version specifier or extras)
+        PKG_NAME=$(echo "$line" | awk '{print $1}' | sed 's/\[.*$//' | sed 's/[<>=!~].*//')
+        
+        # Check if package directory exists in output
+        if [ ! -d "$OUTPUT_DIR/$PKG_NAME" ]; then
+            MISSING_PACKAGES+=("$PKG_NAME")
+        fi
+    done < "$TEMP_FILTERED"
+    
+    rm -f "$TEMP_FILTERED"
+    
+    if [ ${#MISSING_PACKAGES[@]} -gt 0 ]; then
+        echo "❌ ERROR: The following packages from $SDK_FILE are MISSING in $OUTPUT_DIR:"
+        for pkg in "${MISSING_PACKAGES[@]}"; do
+            echo "  - $pkg"
+        done
+        return 1
+    else
+        echo "✅ All packages from $SDK_FILE were successfully built"
+        return 0
+    fi
+}
 
 # Function to build documentation for a given SDK file and output directory
 build_docs() {
@@ -70,19 +110,20 @@ build_docs() {
         USE_CONSTRAINTS=false
     fi
 
-    # Download and extract the packages' source distributions
+    # Download and extract the packages' source distributions.
+    # --no-binary=:all: forces sdist downloads; --no-build-isolation prevents pip from
+    # installing build tools from source (it uses setuptools/setuptools_scm already in the venv).
+    # This is necesary to avoid circular dependencies in build tools build.
     if [ "$USE_CONSTRAINTS" = true ]; then
         echo "Downloading packages with constraints..."
-        uv run -m pip download --no-deps --no-binary=:all: -c "$CONSTRAINTS_FILE" -r "$FILTERED_SDK_FILE" -d "./temp/$TEMP_SUBDIR"
-        
+        uv run -m pip download --no-deps --no-binary=:all: --no-build-isolation -c "$CONSTRAINTS_FILE" -r "$FILTERED_SDK_FILE" -d "./temp/$TEMP_SUBDIR"
+
         # Install the packages into the virtual environment; needed for Sphinx to resolve namespaces
         uv pip install -r "$CONSTRAINTS_FILE"
     else
         echo "Downloading packages without constraints (may result in version conflicts)..."
-        # Try to download without constraints - some packages may fail but others might succeed
-        uv run -m pip download --no-deps --no-binary=:all: -r "$FILTERED_SDK_FILE" -d "./temp/$TEMP_SUBDIR" || echo "Some package downloads failed, continuing with available packages..."
-        
-        # Try to install packages directly from filtered SDK file (may have conflicts but might partially work)
+        uv run -m pip download --no-deps --no-binary=:all: --no-build-isolation -r "$FILTERED_SDK_FILE" -d "./temp/$TEMP_SUBDIR" || echo "Some package downloads failed, continuing with available packages..."
+
         uv pip install -r "$FILTERED_SDK_FILE" || echo "Some package installations failed, continuing with available packages..."
     fi
     
@@ -163,6 +204,12 @@ if ! build_docs "$DEFAULT_SDK_FILE" "public" "current"; then
     echo "Warning: Failed to build default version documentation, but continuing..."
 fi
 
+# Verify all packages were built successfully
+if ! verify_packages "$DEFAULT_SDK_FILE" "public"; then
+    echo "Error: Package verification failed for default version"
+    exit 1
+fi
+
 # Build all other versions from SDK version files (excluding the default one)
 for sdk_file in ../sdk*.txt; do
     if [ -f "$sdk_file" ]; then
@@ -176,6 +223,12 @@ for sdk_file in ../sdk*.txt; do
         echo "=== Building documentation for $version from $sdk_file ==="
         if ! build_docs "$sdk_file" "public/$version" "$version"; then
             echo "Warning: Failed to build documentation for $version, but continuing with other versions..."
+        fi
+
+        # Verify all packages were built successfully
+        if ! verify_packages "$sdk_file" "public/$version"; then
+            echo "Error: Package verification failed for $version"
+            exit 1
         fi
     fi
 done
