@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Script to copy SDK files to the public directory so they can be accessed by the frontend
 
 echo "Copying SDK files to public directory..."
@@ -10,4 +12,4 @@ cd "$(dirname "$0")"
 mkdir -p public
 
 # Copy all sdk*.txt files from parent directory to public
-cp ../sdk*.txt public/ 2>/dev/null && echo "SDK files copied successfully." || echo "No SDK files found in parent directory"
+cp -v ../sdk*.txt public/ 2>/dev/null && echo "SDK files copied successfully." || echo "No SDK files found in parent directory"

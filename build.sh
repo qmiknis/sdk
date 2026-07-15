@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$REPO_ROOT/docs"
@@ -86,7 +86,7 @@ build_sphinx() {
     CONF_BACKUPS+=("$src/docs/conf.py.bak")
     cat "$REPO_ROOT/sphinx_docs_conf.py" >> "$src/docs/conf.py"
 
-    (cd "$src" && python -m sphinx docs "$out")
+    (cd "$src" && python -m sphinx -j auto docs "$out")
     touch "$out/.nojekyll"
 
     # Restore original conf.py
@@ -120,14 +120,14 @@ build_version() {
     local filtered="$tmp_dir/filtered.txt"
     grep -v -E "^(qrisp)(\[|==|>=|<=|>|<|!=|~=|$)" "$sdk_file" > "$filtered"
 
-    # Compile constraints and download sdists
+    # Compile constraints and download sdists.
     if uv pip compile --upgrade --no-emit-index-url --no-emit-find-links \
         --no-header --no-cache --no-annotate \
         $UV_LOCAL_ARGS \
-        --output-file "$tmp_dir/constraints.txt" "$filtered" 2>/dev/null; then
+        --output-file "$tmp_dir/constraints.txt" "$filtered"; then
         USE_CONSTRAINTS=true
     else
-        echo "Warning: constraint compilation failed, proceeding without constraints..."
+        echo "WARNING: constraint compilation failed for $sdk_file; proceeding without constraints (see resolver error above)." >&2
         USE_CONSTRAINTS=false
     fi
 
@@ -172,11 +172,15 @@ build_version() {
         fi
     fi
 
-    # Install packages into venv (Sphinx needs them to resolve imports)
+    # Install packages into venv (Sphinx needs them to resolve imports).
     if [ "$USE_CONSTRAINTS" = true ]; then
         uv pip install $UV_LOCAL_ARGS -r "$tmp_dir/constraints.txt"
-    else
-        uv pip install $UV_LOCAL_ARGS -r "$filtered" || true
+    elif ! uv pip install $UV_LOCAL_ARGS -r "$filtered"; then
+        echo "ERROR: failed to install packages from $sdk_file." >&2
+        echo "       If an internal package index is configured (e.g. UV_EXTRA_INDEX_URL or" >&2
+        echo "       PIP_EXTRA_INDEX_URL), it may be shadowing the versions pinned in the SDK" >&2
+        echo "       file. Unset it before running, or use --local-pypi for unreleased packages." >&2
+        exit 1
     fi
 
     # Extract and build each downloaded sdist
