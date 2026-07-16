@@ -45,48 +45,42 @@ function parseAdvertisedSdk(content: string): {filename: string, isDefault: bool
 
 // Function to discover SDK files from the advertised_sdk.txt manifest
 async function discoverSdkFiles(): Promise<{filename: string, path: string, isDefault: boolean}[]> {
-  // Try to fetch the manifest from different locations, prioritizing public folder
-  const possibleBasePaths = ['./public/', '../', './'];
+  const manifestPath = './advertised_sdk.txt';
 
-  for (const basePath of possibleBasePaths) {
-    const manifestPath = `${basePath}advertised_sdk.txt`;
+  try {
+    const response = await fetch(manifestPath);
 
-    try {
-      const response = await fetch(manifestPath);
+    if (response.ok && response.status === 200 && response.headers.get('content-type')?.includes('text')) {
+      const text = await response.text();
 
-      if (response.ok && response.status === 200 && response.headers.get('content-type')?.includes('text')) {
-        const text = await response.text();
-
-        // Guard against SPA fallbacks returning index.html for missing files
-        if (text.includes('<html>') || text.includes('<HTML>') || text.includes('<!DOCTYPE')) {
-          console.log(`✗ Invalid advertised_sdk.txt at ${basePath}: looks like HTML`);
-          continue;
-        }
-
-        const entries = parseAdvertisedSdk(text);
-        if (entries.length === 0) {
-          console.log(`✗ No SDK files listed in advertised_sdk.txt at ${basePath}`);
-          continue;
-        }
-
-        const sdkFiles = entries.map(({ filename, isDefault }) => ({
-          filename,
-          path: `${basePath}${filename}`,
-          isDefault
-        }));
-
-        console.log(`✓ Loaded advertised_sdk.txt from ${basePath}:`, sdkFiles.map(f => f.filename));
-        console.log(`📁 Total SDK files advertised: ${sdkFiles.length}`);
-        return sdkFiles;
+      // Guard against SPA fallbacks returning index.html for missing files
+      if (text.includes('<html>') || text.includes('<HTML>') || text.includes('<!DOCTYPE')) {
+        console.warn('✗ Invalid advertised_sdk.txt: looks like HTML');
+        return [];
       }
 
-      console.log(`✗ Failed to fetch advertised_sdk.txt at ${basePath}: status ${response.status}`);
-    } catch {
-      console.log(`✗ advertised_sdk.txt not found at ${basePath}`);
+      const entries = parseAdvertisedSdk(text);
+      if (entries.length === 0) {
+        console.warn('✗ No SDK files listed in advertised_sdk.txt');
+        return [];
+      }
+
+      const sdkFiles = entries.map(({ filename, isDefault }) => ({
+        filename,
+        path: `./${filename}`,
+        isDefault
+      }));
+
+      console.log('✓ Loaded advertised_sdk.txt:', sdkFiles.map(f => f.filename));
+      console.log(`📁 Total SDK files advertised: ${sdkFiles.length}`);
+      return sdkFiles;
     }
+
+    console.warn(`✗ Failed to fetch advertised_sdk.txt: status ${response.status}`);
+  } catch {
+    console.warn('✗ advertised_sdk.txt not found');
   }
 
-  console.warn('✗ Could not load advertised_sdk.txt from any known location');
   return [];
 }
 
