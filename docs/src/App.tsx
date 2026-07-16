@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import Fuse from 'fuse.js';
 import { Search, X } from 'lucide-react';
 import AppSwitcher from './AppSwitcher';
-import defaultDocs from "../search.json";
 import Features from './Features';
 import QrispLogo from './img/qrisp_logo.png'
 import { versionConfigs, versionConfigsPromise, type VersionType, type VersionConfig } from './configs';
@@ -13,6 +12,10 @@ interface Doc {
   description: string;
   url: string;
 }
+
+// No root search index is shipped anymore; every version has its own
+// ./sdkX_Y/search_sdkX_Y.json, loaded dynamically. Start empty until loaded.
+const defaultDocs: Doc[] = [];
 
 function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,14 +54,11 @@ function App() {
   useEffect(() => {
     const loadSearchIndex = async () => {
       try {
-        let searchIndexUrl = './search.json'; // Default for resonance
-
-        if (selectedVersion !== 'resonance') {
-          // Map version ID to directory name
-          const pathPrefix = currentVersionConfig.pathPrefix;
-          const dirName = pathPrefix.replace('./', '').replace('/', ''); // Convert './sdk4_1/' to 'sdk4_1'
-          searchIndexUrl = `./${dirName}/search_${dirName}.json`;
-        }
+        // Every version (including the default) is built into its own
+        // ./sdkX_Y/ directory with a matching search_sdkX_Y.json index.
+        const pathPrefix = currentVersionConfig.pathPrefix;
+        const dirName = pathPrefix.replace('./', '').replace('/', ''); // Convert './sdk4_5/' to 'sdk4_5'
+        const searchIndexUrl = `./${dirName}/search_${dirName}.json`;
 
         const response = await fetch(searchIndexUrl);
         if (response.ok) {
@@ -178,7 +178,10 @@ function App() {
       })
       .map(doc => ({
         ...doc,
-        href: doc.external || `${pathPrefix}${doc.package}${doc.package === 'iqm-client' ? '/' : ''}`
+        // Point directly at the package directory's index.html so the path
+        // (e.g. ./sdk4_5/iqm-pulla/index.html) resolves without relying on the
+        // server's directory-index behaviour.
+        href: doc.external || `${pathPrefix}${doc.package}/index.html`
       }));
   };
 

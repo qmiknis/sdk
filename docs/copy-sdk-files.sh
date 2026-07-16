@@ -13,3 +13,6 @@ mkdir -p public
 
 # Copy all sdk*.txt files from parent directory to public
 cp -v ../sdk*.txt public/ 2>/dev/null && echo "SDK files copied successfully." || echo "No SDK files found in parent directory"
+
+# Copy advertised_sdk.txt to public directory
+cp -v ../advertised_sdk.txt public/ 2>/dev/null && echo "advertised_sdk.txt copied successfully." || echo "advertised_sdk.txt not found in parent directory"

@@ -24,73 +24,70 @@ function parsePackagesFromSdkContent(content: string): string[] {
     .filter(pkg => pkg);
 }
 
-// Function to discover SDK files dynamically
-async function discoverSdkFiles(): Promise<{filename: string, path: string}[]> {
-  const sdkFiles: {filename: string, path: string}[] = [];
+// Function to parse the advertised_sdk.txt manifest.
+// Each non-empty, non-comment line lists an SDK file to advertise, e.g.:
+//   sdk4_4.txt
+//   sdk4_5.txt,default
+// The optional ",default" marker flags the default version.
+function parseAdvertisedSdk(content: string): {filename: string, isDefault: boolean}[] {
+  return content
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'))
+    .map(line => {
+      const parts = line.split(',').map(part => part.trim());
+      const filename = parts[0];
+      const isDefault = parts.slice(1).some(part => part.toLowerCase() === 'default');
+      return { filename, isDefault };
+    })
+    .filter(entry => entry.filename);
+}
 
-  // Get max versions from environment variables or use defaults
-  const maxMajor = parseInt(import.meta.env.VITE_SDK_MAX_MAJOR_VERSION || '10', 10);
-  const maxMinor = parseInt(import.meta.env.VITE_SDK_MAX_MINOR_VERSION || '10', 10);
-
-  console.log(`🔍 Scanning for SDK files up to version ${maxMajor}.${maxMinor}`);
-
-  // Try to fetch from different locations, prioritizing public folder
+// Function to discover SDK files from the advertised_sdk.txt manifest
+async function discoverSdkFiles(): Promise<{filename: string, path: string, isDefault: boolean}[]> {
+  // Try to fetch the manifest from different locations, prioritizing public folder
   const possibleBasePaths = ['./public/', '../', './'];
 
   for (const basePath of possibleBasePaths) {
-    const foundInThisPath: {filename: string, path: string}[] = [];
+    const manifestPath = `${basePath}advertised_sdk.txt`;
 
-    // Scan based on environment-configured or default limits
-    for (let major = 3; major <= maxMajor; major++) {
-      for (let minor = 0; minor <= maxMinor; minor++) {
-        const patterns = [`sdk${major}_${minor}.txt`, `sdk${major}_${minor}_default.txt`];
+    try {
+      const response = await fetch(manifestPath);
 
-        for (const filename of patterns) {
-          try {
-            const fullPath = `${basePath}${filename}`;
-            const response = await fetch(fullPath);
+      if (response.ok && response.status === 200 && response.headers.get('content-type')?.includes('text')) {
+        const text = await response.text();
 
-            // Be very strict about what constitutes a valid response
-            if (response.ok && response.status === 200 && response.headers.get('content-type')?.includes('text')) {
-              const text = await response.text();
-
-              // Very strict validation for SDK files
-              if (text.trim().length > 10 && // Must have substantial content
-                  !text.includes('404') &&
-                  !text.includes('Not Found') &&
-                  !text.includes('<html>') &&
-                  !text.includes('<HTML>') &&
-                  !text.includes('<!DOCTYPE') &&
-                  text.split('\n').some(line => line.trim().match(/^[a-zA-Z0-9-_]+(\[.*?\])?(\s*==.*)?$/))) { // Must contain package-like lines
-
-                foundInThisPath.push({ filename, path: fullPath });
-                console.log(`✓ Found valid SDK file: ${filename}`);
-              } else {
-                console.log(`✗ Invalid content in ${filename}: too short or doesn't look like SDK file`);
-              }
-            } else {
-              console.log(`✗ Failed to fetch ${filename}: status ${response.status}`);
-            }
-          } catch {
-            // File doesn't exist, this is expected for most combinations
-            console.log(`✗ ${filename} not found at ${basePath}`);
-          }
+        // Guard against SPA fallbacks returning index.html for missing files
+        if (text.includes('<html>') || text.includes('<HTML>') || text.includes('<!DOCTYPE')) {
+          console.log(`✗ Invalid advertised_sdk.txt at ${basePath}: looks like HTML`);
+          continue;
         }
-      }
-    }
 
-    // If we found files in this path, use them and stop searching other paths
-    if (foundInThisPath.length > 0) {
-      sdkFiles.push(...foundInThisPath);
-      console.log(`✓ Found ${foundInThisPath.length} valid SDK files in ${basePath}:`, foundInThisPath.map(f => f.filename));
-      break;
-    } else {
-      console.log(`✗ No valid SDK files found in ${basePath}`);
+        const entries = parseAdvertisedSdk(text);
+        if (entries.length === 0) {
+          console.log(`✗ No SDK files listed in advertised_sdk.txt at ${basePath}`);
+          continue;
+        }
+
+        const sdkFiles = entries.map(({ filename, isDefault }) => ({
+          filename,
+          path: `${basePath}${filename}`,
+          isDefault
+        }));
+
+        console.log(`✓ Loaded advertised_sdk.txt from ${basePath}:`, sdkFiles.map(f => f.filename));
+        console.log(`📁 Total SDK files advertised: ${sdkFiles.length}`);
+        return sdkFiles;
+      }
+
+      console.log(`✗ Failed to fetch advertised_sdk.txt at ${basePath}: status ${response.status}`);
+    } catch {
+      console.log(`✗ advertised_sdk.txt not found at ${basePath}`);
     }
   }
 
-  console.log(`📁 Total SDK files discovered: ${sdkFiles.length}`, sdkFiles.map(f => f.filename));
-  return sdkFiles;
+  console.warn('✗ Could not load advertised_sdk.txt from any known location');
+  return [];
 }
 
 // Function to generate version configurations from SDK files
@@ -107,7 +104,7 @@ async function generateVersionConfigs(): Promise<VersionConfig[]> {
 
   let defaultVersion: string | null = null;
 
-  for (const { filename, path } of sdkFiles) {
+  for (const { filename, path, isDefault } of sdkFiles) {
     try {
       const response = await fetch(path);
       if (!response.ok) continue;
@@ -117,12 +114,11 @@ async function generateVersionConfigs(): Promise<VersionConfig[]> {
       const packages = parsePackagesFromSdkContent(content);
 
       // Extract version info from filename
-      const versionMatch = filename.match(/sdk(\d+)_(\d+)(_default)?\.txt/);
+      const versionMatch = filename.match(/sdk(\d+)_(\d+)\.txt/);
       if (!versionMatch) continue;
 
-      const [, major, minor, isDefaultSuffix] = versionMatch;
+      const [, major, minor] = versionMatch;
       const versionKey = `${major}_${minor}`;
-      const isDefault = !!isDefaultSuffix;
 
       if (isDefault) {
         defaultVersion = versionKey;
@@ -131,7 +127,9 @@ async function generateVersionConfigs(): Promise<VersionConfig[]> {
       const config: VersionConfig = {
         id: versionKey,
         label: `IQM OS ${major}.${minor}${isDefault ? ' (Resonance)' : ''}`,
-        pathPrefix: isDefault ? './' : `./sdk${major}_${minor}/`,
+        // Every advertised version (including the default) is built into its
+        // own ./sdkX_Y/ directory by build.sh.
+        pathPrefix: `./sdk${major}_${minor}/`,
         packages,
         isDefault,
         isPreview: false

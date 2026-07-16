@@ -18,14 +18,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# --- Find the default SDK file ---
-DEFAULT_SDK_FILE=""
-for f in ../sdk*_default.txt; do
-    [ -f "$f" ] && DEFAULT_SDK_FILE="$f" && break
-done
-[ -z "$DEFAULT_SDK_FILE" ] && { echo "Error: No sdk*_default.txt found"; exit 1; }
-echo "Using default SDK file: $DEFAULT_SDK_FILE"
-
 mkdir -p public temp
 
 # Build extra-index arguments (used throughout the script)
@@ -194,28 +186,20 @@ build_version() {
 }
 
 # ============================================================
-# Build default/current version
+# SDK versions
 # ============================================================
 
-echo "=== Building default/current version ==="
-build_version "$DEFAULT_SDK_FILE" "public" "temp/current"
-verify_packages "$DEFAULT_SDK_FILE" "public"
+pwd
+while IFS= read -r line || [[ -n $line ]]; do
+    [[ -z $line || "$line" =~ ^[[:space:]]*# ]] && continue
+    IFS=, read -r sdkfile extra <<< "$line"
 
-# ============================================================
-# Build older SDK versions
-# ============================================================
+    version=$(basename "$sdkfile" .txt)
+    echo "=== Building SDK version: $version ==="
 
-if $BUILD_OLD_VERSIONS; then
-    for sdk_file in ../sdk*.txt; do
-        [ -f "$sdk_file" ] || continue
-        [ "$sdk_file" = "$DEFAULT_SDK_FILE" ] && continue
-
-        version=$(basename "$sdk_file" .txt)
-        echo "=== Building $version ==="
-        build_version "$sdk_file" "public/$version" "temp/$version"
-        verify_packages "$sdk_file" "public/$version"
-    done
-fi
+    build_version "../$sdkfile" "public/$version" "temp/$version"
+    verify_packages "../$sdkfile" "public/$version"
+done < ../advertised_sdk.txt
 
 # ============================================================
 # Cleanup and search index generation
@@ -224,10 +208,6 @@ fi
 rm -rf public/jupyter_execute
 find public -type d -name .doctrees -exec rm -rf {} +
 touch public/.nojekyll
-
-echo "Generating search index for main version..."
-python generate_search_index.py
-cp search.json public/ 2>/dev/null || echo "No search index found"
 
 for version_dir in public/sdk*; do
     [ -d "$version_dir" ] || continue
