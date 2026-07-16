@@ -58,6 +58,13 @@ function App() {
         // ./sdkX_Y/ directory with a matching search_sdkX_Y.json index.
         const pathPrefix = currentVersionConfig.pathPrefix;
         const dirName = pathPrefix.replace('./', '').replace('/', ''); // Convert './sdk4_5/' to 'sdk4_5'
+
+        // Skip until a real version is resolved; the initial static fallback
+        // has an empty dirName and would request './/search_.json'.
+        if (!dirName) {
+          return;
+        }
+
         const searchIndexUrl = `./${dirName}/search_${dirName}.json`;
 
         const response = await fetch(searchIndexUrl);
