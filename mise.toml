@@ -14,9 +14,9 @@
   #!/usr/bin/env bash
   set -euo pipefail
   # Check if any of the custom package registry environment variables are set
-  if [[ -n "${UV_INDEX:-}" || -n "${UV_EXTRA_INDEX:-}" || -n "${PIP_INDEX:-}" || -n "${PIP_EXTRA_INDEX:-}" ]]; then
+  if [[ -n "${UV_INDEX:-}" || -n "${UV_EXTRA_INDEX:-}" || -n "${UV_EXTRA_INDEX_URL:-}" || -n "${PIP_INDEX:-}" || -n "${PIP_EXTRA_INDEX:-}" || -n "${PIP_EXTRA_INDEX_URL:-}" ]]; then
       echo "⚠️ Custom package registries are set."
-      grep -E '^(UV_INDEX|UV_EXTRA_INDEX|PIP_INDEX|PIP_EXTRA_INDEX)=' <<< "$(env)" | sed 's/^/   /'
+      grep -E '^(UV_INDEX|UV_EXTRA_INDEX|UV_EXTRA_INDEX_URL|PIP_INDEX|PIP_EXTRA_INDEX|PIP_EXTRA_INDEX_URL)=' <<< "$(env)" | sed 's/=.*/=<redacted>/' | sed 's/^/   /'
       echo "   This may cause issues when building the SDK documentation and differs from the Github CI"
       read -p "Do you want to continue? (y/n): " choice
       case "$choice" in
@@ -29,6 +29,7 @@
 
 [tasks.build-sphinx]
   description = "Sphinx build the SDK documentation"
+  depends = ["check-package-registry-env"]
   usage = '''
   flag "--current-only" help="Skip building old SDK versions"
   flag "--local-pypi <dir>" help="Use a local PEP 503 Simple Repository"
@@ -94,7 +95,9 @@
     cp -r dist/* public/
     cp src/favicon.ico public/favicon.ico
   """
-  outputs = ["docs/public/index.html"]
+  outputs = [
+    "docs/public/index.html",
+  ]
 
 [tasks.serve-http]
   description = "Start a local HTTP server to serve the docs"
