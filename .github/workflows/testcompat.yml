@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'sdk*_default.txt'
+      - 'advertised_sdk.txt'
   pull_request:
     branches:
       - main
@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install uv (Unix)
         if: runner.os != 'Windows'
@@ -54,9 +54,9 @@ jobs:
       - name: Install packages (Unix)
         if: runner.os != 'Windows'
         run: |
-          DEFAULT_SDK_FILE=$(ls sdk*_default.txt 2>/dev/null | head -n1)
+          DEFAULT_SDK_FILE=$(grep ',default' advertised_sdk.txt | cut -d',' -f1)
           if [ -z "$DEFAULT_SDK_FILE" ]; then
-            echo "No default SDK file found (sdk*_default.txt)"
+            echo "No default SDK file found in advertised_sdk.txt"
             exit 1
           fi
           echo "Using SDK file: $DEFAULT_SDK_FILE"
@@ -67,9 +67,9 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           $ErrorActionPreference = "Stop"
-          $DefaultSdkFile = Get-ChildItem -Name "sdk*_default.txt" | Select-Object -First 1
+          $DefaultSdkFile = (Select-String -Path "advertised_sdk.txt" -Pattern ",default" | ForEach-Object { $_.Line.Split(',')[0] } | Select-Object -First 1)
           if (-not $DefaultSdkFile) {
-            Write-Error "No default SDK file found (sdk*_default.txt)"
+            Write-Error "No default SDK file found in advertised_sdk.txt"
             exit 1
           }
           Write-Output "Using SDK file: $DefaultSdkFile"
