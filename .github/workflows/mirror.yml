@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: astral-sh/setup-uv@v5
@@ -35,9 +35,9 @@ jobs:
           mkdir -p ./temp
 
           # Find the SDK file that ends with 'default.txt'
-          SDK_FILE=$(ls sdk*_default.txt 2>/dev/null | head -n 1)
+          SDK_FILE=$(grep ',default' advertised_sdk.txt | cut -d',' -f1)
           if [ -z "$SDK_FILE" ]; then
-            echo "Error: No SDK file ending with 'default.txt' found!"
+            echo "Error: No default SDK file found in advertised_sdk.txt!"
             exit 1
           fi
           echo "Using SDK file: $SDK_FILE"
