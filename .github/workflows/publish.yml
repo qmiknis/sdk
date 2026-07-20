@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: astral-sh/setup-uv@v5
@@ -32,7 +32,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 18
 
@@ -62,14 +62,3 @@ jobs:
           mkdir -p public
           cp -r dist/* public/
           cp src/favicon.ico public/favicon.ico
-
-      - name: Publish to gh-pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        # Only run this step on push to main
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        with:
-          folder: docs/public
-          force: true
-          single-commit: true
-          git-config-name: 'IQM'
-          git-config-email: 'support@meetiqm.com'
