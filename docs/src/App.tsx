@@ -54,13 +54,18 @@ function App() {
   useEffect(() => {
     const loadSearchIndex = async () => {
       try {
+        // Skip until the dynamic version configs have resolved a real version.
+        if (!currentVersionConfig) {
+          return;
+        }
+
         // Every version (including the default) is built into its own
         // ./sdkX_Y/ directory with a matching search_sdkX_Y.json index.
         const pathPrefix = currentVersionConfig.pathPrefix;
         const dirName = pathPrefix.replace('./', '').replace('/', ''); // Convert './sdk4_5/' to 'sdk4_5'
 
-        // Skip until a real version is resolved; the initial static fallback
-        // has an empty dirName and would request './/search_.json'.
+        // Skip until a real version is resolved; an empty dirName would
+        // otherwise request './/search_.json'.
         if (!dirName) {
           return;
         }
@@ -175,6 +180,8 @@ function App() {
 
   // Generate docLinks based on selected version and available packages
   const getDocLinks = () => {
+    if (!currentVersionConfig) return [];
+
     const availablePackages = getPackagesForVersion(selectedVersion);
     const pathPrefix = currentVersionConfig.pathPrefix;
 

@@ -190,6 +190,7 @@ build_version() {
 # ============================================================
 
 pwd
+DEFAULT_VERSION=""
 while IFS= read -r line || [[ -n $line ]]; do
     [[ -z $line || "$line" =~ ^[[:space:]]*# ]] && continue
     IFS=, read -r sdkfile extra <<< "$line"
@@ -199,6 +200,11 @@ while IFS= read -r line || [[ -n $line ]]; do
 
     build_version "../$sdkfile" "public/$version" "temp/$version"
     verify_packages "../$sdkfile" "public/$version"
+
+    # Remember the version flagged as default in advertised_sdk.txt
+    if [[ "$extra" == *default* ]]; then
+        DEFAULT_VERSION="$version"
+    fi
 done < ../advertised_sdk.txt
 
 # ============================================================

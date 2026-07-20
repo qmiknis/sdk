@@ -168,26 +168,7 @@ async function generateVersionConfigs(): Promise<VersionConfig[]> {
 // Export a promise that resolves to the version configs
 export const versionConfigsPromise = generateVersionConfigs();
 
-// For backwards compatibility, export the old static configs initially
-// These will be replaced by the dynamic ones once loaded
-export const versionConfigs: VersionConfig[] = [
-  {
-    id: '4_3',
-    label: 'IQM OS 4.3 (Resonance)',
-    pathPrefix: './',
-    isDefault: true,
-    isPreview: false,
-    packages: [
-      'iqm-data-definitions',
-      'iqm-exa-common',
-      'iqm-station-control-client',
-      'iqm-pulse',
-      'iqm-pulla',
-      'iqm-client',
-      'iqm-qaoa',
-      'qrisp',
-      'iqm-benchmarks',
-      'iqm-qubit-selector'
-    ]
-  }
-];
+// Initial value before the dynamic configs (from advertised_sdk.txt) resolve.
+// Kept empty on purpose: a hardcoded version here would be shown to users while
+// loading and would linger as a stale/misleading version if discovery fails.
+export const versionConfigs: VersionConfig[] = [];
