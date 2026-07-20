@@ -185,6 +185,15 @@ build_version() {
     done
 }
 
+build_search_index() {
+    local version_dir=$1
+    local version_name=$(basename "$version_dir")
+    echo "Generating search index for $version_name..."
+    python generate_search_index.py "$version_name" "$version_dir/" "search_${version_name}.json"
+    cp "search_${version_name}.json" "$version_dir/" 2>/dev/null || true
+    rm -f "search_${version_name}.json"
+}
+
 # ============================================================
 # SDK versions
 # ============================================================
@@ -196,15 +205,23 @@ while IFS= read -r line || [[ -n $line ]]; do
     IFS=, read -r sdkfile extra <<< "$line"
 
     version=$(basename "$sdkfile" .txt)
-    echo "=== Building SDK version: $version ==="
-
-    build_version "../$sdkfile" "public/$version" "temp/$version"
-    verify_packages "../$sdkfile" "public/$version"
 
     # Remember the version flagged as default in advertised_sdk.txt
     if [[ "$extra" == *default* ]]; then
         DEFAULT_VERSION="$version"
     fi
+
+    echo "=== Building SDK version: $version ==="
+    if [ -d "public/$version" ]; then
+        echo "Skipping \"$version\" - Documentation already exists in public/$version"
+        continue
+    fi
+
+    build_version "../$sdkfile" "public/$version" "temp/$version"
+    verify_packages "../$sdkfile" "public/$version"
+
+    build_search_index "public/$version"
+
 done < ../advertised_sdk.txt
 
 # ============================================================
@@ -214,14 +231,5 @@ done < ../advertised_sdk.txt
 rm -rf public/jupyter_execute
 find public -type d -name .doctrees -exec rm -rf {} +
 touch public/.nojekyll
-
-for version_dir in public/sdk*; do
-    [ -d "$version_dir" ] || continue
-    version_name=$(basename "$version_dir")
-    echo "Generating search index for $version_name..."
-    python generate_search_index.py "$version_name" "$version_dir/" "search_${version_name}.json"
-    cp "search_${version_name}.json" "$version_dir/" 2>/dev/null || true
-    rm -f "search_${version_name}.json"
-done
 
 echo "Done."

@@ -46,8 +46,7 @@ jobs:
       - name: Copy SDK files to React public directory
         working-directory: ./docs
         run: |
-          chmod +x copy-sdk-files.sh
-          ./copy-sdk-files.sh
+          bash copy-sdk-files.sh
 
       - name: Install and build React project
         working-directory: ./docs
@@ -61,9 +60,11 @@ jobs:
           mkdir -p public
           cp -r dist/* public/
           cp src/favicon.ico public/favicon.ico
+          echo "Directory structure of public folder:"
+          ls public
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload artifact for deploy-pages action
+        uses: actions/upload-pages-artifact@v5
         with:
           path: 'docs/public'
 
