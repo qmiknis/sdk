@@ -36,7 +36,7 @@ const Tooltip = ({ content, children }: { content: JSX.Element, children: JSX.El
             </span>
             {visible && createPortal(
                 <div
-                    className="fixed p-2 bg-gray-700 text-white text-sm rounded shadow-lg z-50"
+                    className="fixed p-2 bg-gray-700 text-white text-sm rounded-sm shadow-lg z-50"
                     style={{ top: mousePosition.y + 10, left: mousePosition.x + 10 }}
                 >
                     {content}

@@ -205,7 +205,7 @@ function App() {
     <div className="min-h-screen px-8 py-3">
       <div className="mx-auto">
 
-        <div className="flex flex-col sm:flex-row mb-4 sm:gap-2 lg:gap-[8rem]">
+        <div className="flex flex-col sm:flex-row mb-4 sm:gap-2 lg:gap-32">
           <AppSwitcher />
 
           <div className="flex gap-4">
@@ -256,7 +256,7 @@ function App() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
                   {docLinks.map((doc, index) => (
-                      <a key={index} href={doc.href} target='_blank' className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow relative">
+                      <a key={index} href={doc.href} target='_blank' className="p-6 bg-white border border-gray-200 rounded-lg shadow-xs hover:shadow-md transition-shadow relative">
                       {doc.image ? (
                         <img
                         src={doc.image}
@@ -285,7 +285,7 @@ function App() {
                     type="text"
                     autoFocus
                     placeholder="Search documentation..."
-                    className="flex-1 outline-none text-gray-900"
+                    className="flex-1 outline-hidden text-gray-900"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
