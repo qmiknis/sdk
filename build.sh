@@ -212,7 +212,7 @@ while IFS= read -r line || [[ -n $line ]]; do
     fi
 
     echo "=== Building SDK version: $version ==="
-    if [ -d "public/$version" ]; then
+    if [ -f "public/$version/search_${version}.json" ]; then
         echo "Skipping \"$version\" - Documentation already exists in public/$version"
         continue
     fi
