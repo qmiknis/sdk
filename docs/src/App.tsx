@@ -277,7 +277,7 @@ function App() {
 
           {/* Modal */}
           {isModalOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center pt-[15vh] z-50">
+            <div className="fixed inset-0 bg-gray-200/70 flex items-start justify-center pt-[15vh] z-50">
               <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[70vh] overflow-hidden">
                 <div className="p-4 border-b border-gray-100 flex items-center gap-3">
                   <Search className="w-5 h-5 text-gray-400" />
